@@ -1,0 +1,19 @@
+{
+  "name": "口算贪吃蛇",
+  "short_name": "口算蛇",
+  "description": "小学数学口算练习游戏 - 边玩边练，吃对答案就能过关！",
+  "start_url": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#e8f5e9",
+  "theme_color": "#4CAF50",
+  "lang": "zh-CN",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

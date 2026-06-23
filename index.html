@@ -1,0 +1,1225 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>口算贪吃蛇</title>
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#4CAF50">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="口算蛇">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="icon" type="image/svg+xml" href="icon.svg">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'PingFang SC', 'Microsoft YaHei', 'Noto Sans SC', sans-serif;
+    background: #e8f5e9;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+  #app {
+    width: 100%;
+    max-width: 560px;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* ---- 顶栏 ---- */
+  #toolbar {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 16px;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  }
+  #toolbar .grade-badge {
+    background: #4CAF50; color: #fff;
+    padding: 4px 12px; border-radius: 20px;
+    font-size: 14px; font-weight: bold;
+  }
+  #toolbar .level-badge {
+    background: linear-gradient(135deg, #FF6F00, #FF8F00);
+    color: #fff; padding: 4px 12px; border-radius: 20px;
+    font-size: 14px; font-weight: bold;
+    transition: transform 0.3s;
+  }
+  #toolbar .level-badge.pop { animation: pop 0.5s ease; }
+  #toolbar .stats {
+    display: flex; gap: 16px; align-items: center;
+    font-size: 15px; font-weight: bold;
+  }
+  #toolbar .stats .score { color: #E65100; }
+  #toolbar .stats .combo { color: #F9A825; font-size: 13px; }
+  #toolbar .lives { color: #E53935; font-size: 18px; letter-spacing: 2px; }
+  #toolbar button {
+    background: #E8F5E9; border: none;
+    padding: 8px 14px; border-radius: 10px;
+    font-size: 18px; cursor: pointer;
+  }
+  #toolbar button:hover { background: #C8E6C9; }
+
+  /* ---- 算式卡片 ---- */
+  #question-card {
+    width: 100%; text-align: center;
+    background: #fff; padding: 14px 20px;
+    border-radius: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    font-size: 28px; font-weight: bold; color: #2E7D32;
+  }
+  #question-card .q-text { letter-spacing: 2px; }
+  #question-card .q-hint {
+    font-size: 13px; color: #999; font-weight: normal;
+    margin-top: 2px;
+  }
+
+  /* ---- Canvas 容器 ---- */
+  #canvas-container {
+    width: 100%; aspect-ratio: 1;
+    max-width: 550px; max-height: 550px;
+    position: relative;
+    border-radius: 16px; overflow: hidden;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+  }
+  canvas { display: block; width: 100%; height: 100%; background: #C8E6C9; }
+
+  /* ---- 方向键 ---- */
+  #controls {
+    display: grid;
+    grid-template-columns: 80px 80px 80px;
+    grid-template-rows: 80px 80px 80px;
+    gap: 6px;
+    justify-content: center;
+  }
+  #controls button {
+    width: 100%; height: 100%;
+    border: none; border-radius: 14px;
+    background: #fff; font-size: 32px;
+    cursor: pointer; color: #4CAF50;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    transition: transform 0.1s, background 0.1s;
+  }
+  #controls button:active {
+    transform: scale(0.92);
+    background: #C8E6C9;
+  }
+  #btn-up    { grid-row: 1; grid-column: 2; }
+  #btn-left  { grid-row: 2; grid-column: 1; }
+  #btn-right { grid-row: 2; grid-column: 3; }
+  #btn-down  { grid-row: 3; grid-column: 2; }
+
+  /* ---- 弹窗覆盖层 ---- */
+  .overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.4);
+    display: flex; justify-content: center; align-items: center;
+    z-index: 100;
+  }
+  .overlay.hidden { display: none; }
+
+  .panel {
+    background: #fff; border-radius: 20px;
+    padding: 28px 24px; text-align: center;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+    max-width: 400px; width: 90%;
+  }
+  .panel h1 { font-size: 28px; margin-bottom: 6px; }
+  .panel h1 .emoji { font-size: 36px; }
+  .panel h2 { font-size: 20px; color: #666; margin-bottom: 16px; }
+  .panel .subtitle { font-size: 14px; color: #999; margin-bottom: 16px; }
+
+  /* 年级选择 */
+  .grade-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px; margin-bottom: 16px;
+  }
+  .grade-btn {
+    padding: 12px 8px; border: 2px solid #E0E0E0;
+    border-radius: 12px; background: #fff;
+    cursor: pointer; text-align: left;
+    transition: all 0.2s;
+  }
+  .grade-btn:hover { border-color: #81C784; }
+  .grade-btn.selected { border-color: #4CAF50; background: #E8F5E9; }
+  .grade-btn .g-name { font-size: 16px; font-weight: bold; color: #333; }
+  .grade-btn .g-desc { font-size: 11px; color: #999; margin-top: 2px; }
+
+  .btn-primary {
+    width: 100%; padding: 14px; border: none;
+    border-radius: 14px; font-size: 18px; font-weight: bold;
+    cursor: pointer; color: #fff;
+    background: linear-gradient(135deg, #66BB6A, #43A047);
+    box-shadow: 0 4px 12px rgba(76,175,80,0.3);
+    transition: transform 0.1s, box-shadow 0.2s;
+  }
+  .btn-primary:hover { box-shadow: 0 6px 16px rgba(76,175,80,0.4); }
+  .btn-primary:active { transform: scale(0.97); }
+
+  .btn-secondary {
+    width: 100%; padding: 12px; border: 2px solid #E0E0E0;
+    border-radius: 14px; font-size: 16px; font-weight: bold;
+    cursor: pointer; color: #666; background: #fff;
+    margin-top: 8px;
+  }
+
+  /* 游戏结束统计 */
+  .result-stats {
+    display: grid; grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px; margin: 16px 0;
+  }
+  .stat-item {
+    background: #F5F5F5; border-radius: 12px;
+    padding: 12px 8px; text-align: center;
+  }
+  .stat-item .val { font-size: 20px; font-weight: bold; color: #333; }
+  .stat-item .lbl { font-size: 12px; color: #999; }
+
+  /* 动画 */
+  @keyframes pop {
+    0%   { transform: scale(0.5); opacity: 1; }
+    50%  { transform: scale(1.3); opacity: 0.8; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    25%     { transform: translateX(-6px); }
+    75%     { transform: translateX(6px); }
+  }
+  .shake { animation: shake 0.4s ease; }
+
+  /* 升级弹窗 — 顶部横条，不遮挡游戏区 */
+  @keyframes levelUpSlide {
+    0%   { transform: translateX(-50%) translateY(-80px); opacity: 0; }
+    30%  { transform: translateX(-50%) translateY(0); opacity: 1; }
+    80%  { transform: translateX(-50%) translateY(0); opacity: 1; }
+    100% { transform: translateX(-50%) translateY(-80px); opacity: 0; }
+  }
+  .levelup-notice {
+    position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
+    background: linear-gradient(135deg, #FF8F00, #FF6D00);
+    color: #fff; border-radius: 30px; padding: 8px 24px;
+    display: flex; align-items: center; gap: 10px;
+    z-index: 200;
+    box-shadow: 0 4px 20px rgba(255, 109, 0, 0.4);
+    animation: levelUpSlide 2.2s ease forwards;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+  .levelup-notice .lv-icon { font-size: 30px; }
+  .levelup-notice .lv-info { display: flex; flex-direction: column; line-height: 1.2; }
+  .levelup-notice .lv-title { font-size: 10px; opacity: 0.8; }
+  .levelup-notice .lv-name { font-size: 18px; font-weight: bold; }
+
+  /* 响应式 */
+  @media (min-width: 768px) {
+    #controls { display: none; }
+  }
+  @media (max-width: 767px) {
+    #app { padding: 4px; gap: 6px; }
+    #question-card { font-size: 24px; padding: 10px 16px; }
+    #canvas-container { max-width: 100vw; max-height: calc(100vw - 20px); }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- 顶栏 -->
+  <div id="toolbar">
+    <span class="grade-badge" id="gradeBadge">一年级下</span>
+    <span class="level-badge" id="levelBadge">🐸 小蝌蚪</span>
+    <div class="stats">
+      <span class="score">⭐<span id="scoreVal">0</span></span>
+      <span class="combo" id="comboBadge" style="display:none">COMBO×1</span>
+      <span class="lives" id="livesVal">❤️❤️❤️</span>
+    </div>
+    <button id="btnPause" title="暂停">⏸</button>
+  </div>
+
+  <!-- 算式 -->
+  <div id="question-card">
+    <div class="q-text" id="qText">准备开始！</div>
+    <div class="q-hint" id="qHint">按方向键控制小蛇</div>
+  </div>
+
+  <!-- Canvas -->
+  <div id="canvas-container">
+    <canvas id="gameCanvas"></canvas>
+  </div>
+
+  <!-- 触屏方向键 -->
+  <div id="controls">
+    <button id="btn-up"    data-dir="up">▲</button>
+    <button id="btn-left"  data-dir="left">◀</button>
+    <button id="btn-right" data-dir="right">▶</button>
+    <button id="btn-down"  data-dir="down">▼</button>
+  </div>
+</div>
+
+<!-- 菜单弹窗 -->
+<div class="overlay" id="menuOverlay">
+  <div class="panel">
+    <h1><span class="emoji">🐍</span> 口算贪吃蛇</h1>
+    <p class="subtitle">吃掉正确答案，成为口算达人！</p>
+    <div class="grade-grid" id="gradeGrid"></div>
+    <button class="btn-primary" id="btnStart">🎮 开始游戏</button>
+  </div>
+</div>
+
+<!-- 暂停弹窗 -->
+<div class="overlay hidden" id="pauseOverlay">
+  <div class="panel">
+    <h1>⏸️ 暂停中</h1>
+    <p style="color:#999;margin:8px 0 16px;">休息一下，准备好了再继续</p>
+    <button class="btn-primary" id="btnResume">▶️ 继续游戏</button>
+    <button class="btn-secondary" id="btnQuit">🏠 返回菜单</button>
+  </div>
+</div>
+
+<!-- 结束弹窗 -->
+<div class="overlay hidden" id="gameoverOverlay">
+  <div class="panel" id="gameoverPanel">
+    <h1 id="goTitle">🎉 太棒了！</h1>
+    <div class="result-stats" id="resultStats"></div>
+    <button class="btn-primary" id="btnRetry">🔄 再来一局</button>
+    <button class="btn-secondary" id="btnHome">🏠 换年级</button>
+  </div>
+</div>
+
+<!-- 升级通知 -->
+<div id="levelupNotice"></div>
+
+<script>
+// ===================== 常量 =====================
+const GRID_SIZE = 20;
+const INITIAL_LENGTH = 3;
+const MAX_LIVES = 3;
+const FOOD_COUNT = 4;
+const COMBO_MAX = 5;
+const BASE_SCORE = 10;
+
+// ===================== 年级配置 =====================
+const GRADE_CONFIG = [
+  { id: 1,  semester: '上', name: '一年级上', desc: '10以内加减法',    ops: ['+','-'],     maxNum: 10,  noNeg: true },
+  { id: 2,  semester: '下', name: '一年级下', desc: '20以内进退位加减', ops: ['+','-'],     maxNum: 20,  noNeg: true },
+  { id: 3,  semester: '上', name: '二年级上', desc: '100以内加减，九九乘法', ops: ['+','-','×'], maxNum: 100, timesMax: 9, noNeg: true },
+  { id: 4,  semester: '下', name: '二年级下', desc: '表内除法，两步混合运算', ops: ['+','-','×','÷'], maxNum: 100, timesMax: 9, divMax: 81, noNeg: true },
+  { id: 5,  semester: '', name: '三年级',   desc: '万以内加减，多位数×÷一位数', ops: ['+','-','×','÷'], maxNum: 9999, timesMax: 999, noNeg: true },
+  { id: 6,  semester: '', name: '四年级',   desc: '多位数乘除，小数加减', ops: ['+','-','×','÷'], maxNum: 99999, useDecimal: true, noNeg: true },
+  { id: 7,  semester: '', name: '五年级',   desc: '小数乘除，分数初步', ops: ['+','-','×','÷'], maxNum: 99999, useDecimal: true, useDecimalMul: true, noNeg: true },
+  { id: 8,  semester: '', name: '六年级',   desc: '分数百分数，全面综合', ops: ['+','-','×','÷'], maxNum: 99999, useDecimal: true, useDecimalMul: true, usePercent: true, noNeg: true },
+];
+
+// ===================== DOM 引用 =====================
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+const canvasContainer = document.getElementById('canvas-container');
+
+const $gradeBadge  = document.getElementById('gradeBadge');
+const $levelBadge  = document.getElementById('levelBadge');
+const $scoreVal    = document.getElementById('scoreVal');
+const $comboBadge  = document.getElementById('comboBadge');
+const $livesVal    = document.getElementById('livesVal');
+const $qText       = document.getElementById('qText');
+const $qHint       = document.getElementById('qHint');
+const $questionCard = document.getElementById('question-card');
+
+const $menuOverlay     = document.getElementById('menuOverlay');
+const $pauseOverlay    = document.getElementById('pauseOverlay');
+const $gameoverOverlay = document.getElementById('gameoverOverlay');
+const $gradeGrid       = document.getElementById('gradeGrid');
+const $resultStats     = document.getElementById('resultStats');
+const $goTitle         = document.getElementById('goTitle');
+
+// ===================== 成就等级 =====================
+const MAX_LEVEL = 10;
+const LEVEL_NAMES = [
+  { name: '小蝌蚪',   icon: '🐸', desc: '初来乍到' },
+  { name: '毛毛虫',   icon: '🐛', desc: '破茧而出' },
+  { name: '小蜜蜂',   icon: '🐝', desc: '勤劳采蜜' },
+  { name: '小松鼠',   icon: '🐿️', desc: '机智灵活' },
+  { name: '小海豚',   icon: '🐬', desc: '乘风破浪' },
+  { name: '小狐狸',   icon: '🦊', desc: '聪明伶俐' },
+  { name: '小猎豹',   icon: '🐆', desc: '速度飞快' },
+  { name: '小狮子',   icon: '🦁', desc: '勇气十足' },
+  { name: '小龙',     icon: '🐉', desc: '飞龙在天' },
+  { name: '小学霸',   icon: '🎓', desc: '口算达人！' },
+];
+// 每级解锁分数（累计）
+const SCORE_THRESHOLDS = [0, 40, 100, 200, 350, 550, 800, 1100, 1500, 2000];
+
+// ===================== 游戏状态 =====================
+let state       = 'menu';  // 'menu' | 'countdown' | 'playing' | 'paused' | 'gameover'
+let gradeIndex  = 1;       // 默认一年级下
+let currentLevel = 1;      // 1-10 成就等级
+let score       = 0;
+let combo       = 0;
+let lives       = MAX_LIVES;
+let snake       = [];
+let direction   = 'right';
+let nextDir     = 'right';
+let foods       = [];
+let curQuestion = null;    // { op, a, b, answer }
+let curAnswer   = 0;
+let particles   = [];
+let comboTimer  = 0;
+let comboText   = '';
+let lastTick    = 0;
+let questionCount = 0;
+let correctCount  = 0;
+let cellSize    = 0;
+let animTimer   = 0;
+
+// ===================== Canvas 尺寸 =====================
+function resizeCanvas() {
+  const w = canvasContainer.clientWidth;
+  const h = canvasContainer.clientHeight;
+  const s = Math.floor(Math.min(w, h));
+  canvas.width = s;
+  canvas.height = s;
+  cellSize = s / GRID_SIZE;
+}
+window.addEventListener('resize', () => { resizeCanvas(); if (state === 'playing') render(); });
+
+// ===================== 年级选择 UI =====================
+function buildGradeGrid() {
+  $gradeGrid.innerHTML = '';
+  GRADE_CONFIG.forEach((g, i) => {
+    const btn = document.createElement('div');
+    btn.className = 'grade-btn' + (i === gradeIndex ? ' selected' : '');
+    btn.innerHTML = `<div class="g-name">${g.name}</div><div class="g-desc">${g.desc}</div>`;
+    btn.addEventListener('click', () => {
+      gradeIndex = i;
+      document.querySelectorAll('.grade-btn').forEach(b => b.classList.remove('selected'));
+      btn.classList.add('selected');
+    });
+    $gradeGrid.appendChild(btn);
+  });
+}
+
+// ===================== 题目生成 =====================
+function randInt(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// 根据等级计算难度混合比例（0~1，越高越偏向下一级）
+function getLevelBlend() {
+  // level 1-3: 0% 下一级, level 4-10: 逐渐从 20%→100%
+  if (currentLevel <= 3) return 0;
+  if (currentLevel >= 10) return 1;
+  // 4→0.2, 5→0.4, 6→0.6, 7→0.75, 8→0.85, 9→0.95
+  const blendMap = [0, 0, 0, 0, 0.2, 0.4, 0.6, 0.75, 0.85, 0.95];
+  return blendMap[currentLevel] || 0;
+}
+
+// 获取当前等级的"影子年级"索引（比选定年级高一级，最多到六年级）
+function getShadowGradeIndex() {
+  // 一年级(0-1) → 二年级(2-3), 二年级(2-3) → 三年级(4), 三年级+ → 下一级
+  if (gradeIndex <= 1) return gradeIndex + 2;       // 一上→二上, 一下→二下
+  if (gradeIndex <= 3) return 4;                     // 二上/下 → 三年级
+  return Math.min(gradeIndex + 1, GRADE_CONFIG.length - 1); // 三→四, 四→五, 五→六
+}
+
+function generateQuestion() {
+  // 根据等级混合：概率性切换到影子年级
+  const blend = getLevelBlend();
+  const useShadow = Math.random() < blend;
+  const cfg = useShadow ? GRADE_CONFIG[getShadowGradeIndex()] : GRADE_CONFIG[gradeIndex];
+  const ops = cfg.ops;
+  if (!ops || ops.length === 0) return null;
+
+  // 加权随机选运算符（优先简单的）
+  let opWeights = ops.map(o => (o === '+' || o === '-') ? 3 : (o === '×') ? 2 : 1);
+  const totalW = opWeights.reduce((s, v) => s + v, 0);
+  let r = Math.random() * totalW;
+  let opIdx = 0;
+  for (let i = 0; i < ops.length; i++) {
+    r -= opWeights[i];
+    if (r <= 0) { opIdx = i; break; }
+  }
+  const op = ops[Math.min(opIdx, ops.length - 1)];
+
+  let a, b, answer;
+
+  switch (op) {
+    case '+':
+      a = randInt(1, cfg.maxNum);
+      b = randInt(1, cfg.maxNum - a);
+      // 确保结果不超过 maxNum
+      if (a + b > cfg.maxNum) b = cfg.maxNum - a;
+      if (b < 1) { b = 1; a = cfg.maxNum - 1; }
+      answer = a + b;
+      break;
+
+    case '-':
+      a = randInt(2, cfg.maxNum);
+      b = randInt(1, a);
+      answer = a - b;
+      // 确保不为0（太简单）
+      if (answer === 0 && a > 1) { b = randInt(1, a - 1); answer = a - b; }
+      break;
+
+    case '×':
+      if (cfg.timesMax && cfg.timesMax <= 9) {
+        // 九九乘法表
+        a = randInt(2, 9);
+        b = randInt(2, 9);
+      } else {
+        a = randInt(2, Math.min(cfg.timesMax || 99, 99));
+        b = randInt(2, 9);
+      }
+      answer = a * b;
+      break;
+
+    case '÷':
+      if (cfg.divMax) {
+        // 表内除法：确保整除
+        b = randInt(2, Math.min(9, Math.floor(Math.sqrt(cfg.divMax))));
+        a = b * randInt(2, Math.floor(cfg.divMax / b));
+      } else {
+        b = randInt(2, 20);
+        a = b * randInt(2, 50);
+      }
+      answer = Math.floor(a / b);
+      break;
+
+    default:
+      a = randInt(1, 20);
+      b = randInt(1, 10);
+      answer = a + b;
+      break;
+  }
+
+  // 处理小数运算（四年级+）
+  if (cfg.useDecimal && (op === '+' || op === '-')) {
+    if (Math.random() < 0.3) {
+      a = Math.round((randInt(10, 100) / 10) * 10) / 10;
+      b = Math.round((randInt(10, 100) / 10) * 10) / 10;
+      if (op === '+') answer = Math.round((a + b) * 10) / 10;
+      else {
+        if (a < b) [a, b] = [b, a];
+        answer = Math.round((a - b) * 10) / 10;
+      }
+    }
+  }
+
+  // 五年级小数乘法
+  if (cfg.useDecimalMul && op === '×' && Math.random() < 0.3) {
+    a = Math.round((randInt(1, 9) + randInt(1, 9) / 10) * 10) / 10;
+    b = randInt(2, 9);
+    answer = Math.round(a * b * 10) / 10;
+  }
+
+  // 六年级百分数
+  if (cfg.usePercent && Math.random() < 0.2) {
+    a = randInt(10, 200);
+    b = randInt(10, 90);
+    answer = Math.round(a * b / 100);
+    // 用特殊表示法
+    return {
+      op: '%',
+      a: a,
+      b: b,
+      answer: answer,
+      displayText: `${a} 的 ${b}% = ?`
+    };
+  }
+
+  return {
+    op: op,
+    a: a,
+    b: b,
+    answer: answer,
+    displayText: `${a} ${op} ${b} = ?`
+  };
+}
+
+// 生成果干扰项
+function generateDistractors(answer, count) {
+  const distractors = new Set();
+  // 偏移范围取决于答案大小
+  const range = Math.max(5, Math.floor(Math.abs(answer) * 0.3));
+  let attempts = 0;
+  while (distractors.size < count && attempts < 100) {
+    attempts++;
+    let offset = randInt(-range, range);
+    if (offset === 0) offset = randInt(1, range);
+    let d = answer + offset;
+    if (d < 0) d = Math.abs(offset);
+    if (d === answer) continue;
+    // 对于小数答案，保持精度一致
+    if (typeof answer === 'number' && !Number.isInteger(answer)) {
+      d = Math.round(d * 10) / 10;
+    }
+    if (!distractors.has(d)) {
+      distractors.add(d);
+    }
+  }
+  // 如果还不够3个
+  while (distractors.size < count) {
+    distractors.add(answer + randInt(1, 10));
+  }
+  return Array.from(distractors);
+}
+
+function generateNewQuestion() {
+  curQuestion = generateQuestion();
+  if (!curQuestion) {
+    curQuestion = { op: '+', a: randInt(1,20), b: randInt(1,10), answer: 0, displayText: '??' };
+    curQuestion.answer = curQuestion.a + curQuestion.b;
+    curQuestion.displayText = `${curQuestion.a} + ${curQuestion.b} = ?`;
+  }
+  curAnswer = curQuestion.answer;
+  $qText.textContent = curQuestion.displayText;
+  $qHint.textContent = '控制小蛇去吃正确答案吧！';
+}
+
+// ===================== 食物系统 =====================
+function placeFoods() {
+  const allValues = [curAnswer, ...generateDistractors(curAnswer, FOOD_COUNT - 1)];
+  const shuffled = shuffle(allValues);
+  foods = [];
+  const snakeSet = new Set(snake.map(s => `${s.x},${s.y}`));
+
+  let attempts = 0;
+  for (const val of shuffled) {
+    let placed = false;
+    let tries = 0;
+    while (!placed && tries < 200) {
+      tries++;
+      const x = randInt(1, GRID_SIZE - 2);
+      const y = randInt(1, GRID_SIZE - 2);
+      const key = `${x},${y}`;
+      // 不与蛇身重叠，不与其他食物位置重叠
+      if (!snakeSet.has(key) && !foods.some(f => f.x === x && f.y === y)) {
+        foods.push({ x, y, value: val, isCorrect: val === curAnswer });
+        placed = true;
+      }
+    }
+    // 如果没放下（格子快满了），随机放
+    if (!placed) {
+      let x = randInt(0, GRID_SIZE - 1);
+      let y = randInt(0, GRID_SIZE - 1);
+      while (foods.some(f => f.x === x && f.y === y)) {
+        x = randInt(0, GRID_SIZE - 1);
+        y = randInt(0, GRID_SIZE - 1);
+      }
+      foods.push({ x, y, value: val, isCorrect: val === curAnswer });
+    }
+  }
+}
+
+// ===================== 蛇逻辑 =====================
+function initSnake() {
+  const cx = Math.floor(GRID_SIZE / 2);
+  const cy = Math.floor(GRID_SIZE / 2);
+  snake = [];
+  for (let i = INITIAL_LENGTH - 1; i >= 0; i--) {
+    snake.push({ x: cx - i, y: cy });
+  }
+  direction = 'right';
+  nextDir = 'right';
+}
+
+function moveSnake() {
+  direction = nextDir;
+  const head = snake[snake.length - 1];
+  let nh = { x: head.x, y: head.y };
+
+  switch (direction) {
+    case 'up':    nh.y--; break;
+    case 'down':  nh.y++; break;
+    case 'left':  nh.x--; break;
+    case 'right': nh.x++; break;
+  }
+
+  // 撞墙检测
+  if (nh.x < 0 || nh.x >= GRID_SIZE || nh.y < 0 || nh.y >= GRID_SIZE) {
+    return 'wall';
+  }
+
+  // 自撞检测
+  if (snake.some((s, i) => i > 0 && s.x === nh.x && s.y === nh.y)) {
+    return 'self';
+  }
+
+  // 食物碰撞
+  const eatenFood = foods.find(f => f.x === nh.x && f.y === nh.y);
+
+  snake.push(nh);
+
+  if (eatenFood) {
+    // 吃到食物，不缩尾
+    return { type: 'food', food: eatenFood };
+  } else {
+    // 没吃到，去掉尾部
+    snake.shift();
+    return 'move';
+  }
+}
+
+function growSnake() {
+  // 在尾部加一节（保持头不动）
+  const tail = snake[0];
+  const second = snake[1] || tail;
+  const dx = tail.x - second.x;
+  const dy = tail.y - second.y;
+  const newTail = { x: tail.x + dx, y: tail.y + dy };
+  // clamp
+  newTail.x = Math.max(0, Math.min(GRID_SIZE - 1, newTail.x));
+  newTail.y = Math.max(0, Math.min(GRID_SIZE - 1, newTail.y));
+  snake.unshift(newTail);
+}
+
+function shrinkSnake() {
+  if (snake.length > 1) {
+    snake.shift();
+  }
+}
+
+// ===================== 特效 =====================
+function spawnParticles(x, y, color, count) {
+  for (let i = 0; i < count; i++) {
+    const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.5;
+    const speed = 2 + Math.random() * 4;
+    particles.push({
+      x, y, color,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      life: 1,
+      decay: 0.02 + Math.random() * 0.03,
+      size: 2 + Math.random() * 3
+    });
+  }
+}
+
+function showComboText(text) {
+  comboText = text;
+  comboTimer = 40; // frames
+}
+
+function updateParticles() {
+  particles = particles.filter(p => {
+    p.x += p.vx;
+    p.y += p.vy;
+    p.life -= p.decay;
+    return p.life > 0;
+  });
+  if (comboText && comboTimer > 0) comboTimer--;
+  else comboText = '';
+  animTimer++;
+}
+
+// ===================== 渲染 =====================
+function pixelX(gx) { return gx * cellSize; }
+function pixelY(gy) { return gy * cellSize; }
+
+function render() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // 网格背景
+  ctx.strokeStyle = '#A5D6A7';
+  ctx.lineWidth = 0.5;
+  for (let x = 0; x <= GRID_SIZE; x++) {
+    ctx.beginPath();
+    ctx.moveTo(pixelX(x), 0);
+    ctx.lineTo(pixelX(x), canvas.height);
+    ctx.stroke();
+  }
+  for (let y = 0; y <= GRID_SIZE; y++) {
+    ctx.beginPath();
+    ctx.moveTo(0, pixelY(y));
+    ctx.lineTo(canvas.width, pixelY(y));
+    ctx.stroke();
+  }
+
+  // 食物
+  const pad = 2;
+  foods.forEach(f => {
+    const cx = pixelX(f.x) + cellSize / 2;
+    const cy = pixelY(f.y) + cellSize / 2;
+    const r = (cellSize / 2) - pad;
+
+    // 圆形背景 — 只用亮色，确保白色数字可读
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    const colors = ['#FF6B6B','#FF8E72','#FFA94D','#FCC419','#69DB7C','#38D9A9','#4DABF7','#748FFC','#DA77F2','#F783AC','#20C997'];
+    const hash = (f.x * 31 + f.y * 17 + f.value * 7) % colors.length;
+    ctx.fillStyle = colors[Math.abs(hash)];
+    ctx.fill();
+
+    // 数字 — 白色 + 描边，任何背景色下都清晰
+    ctx.font = `bold ${Math.floor(cellSize * 0.58)}px "PingFang SC","Microsoft YaHei",sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+    ctx.lineWidth = 2.5;
+    ctx.lineJoin = 'round';
+    const displayVal = typeof f.value === 'number' && !Number.isInteger(f.value)
+      ? f.value.toFixed(1) : String(f.value);
+    ctx.strokeText(displayVal, cx, cy + 1);
+    ctx.fillStyle = '#fff';
+    ctx.fillText(displayVal, cx, cy + 1);
+  });
+
+  // 蛇
+  snake.forEach((seg, i) => {
+    const x = pixelX(seg.x);
+    const y = pixelY(seg.y);
+    const s = cellSize - 2;
+    const t = (i / Math.max(snake.length - 1, 1)); // 0(尾) ~ 1(头)
+
+    // 身体渐变
+    const r = Math.floor(30 + t * 50);   // 30→80
+    const g = Math.floor(160 + t * 40);  // 160→200
+    const b = Math.floor(40 + t * 20);   // 40→60
+
+    ctx.fillStyle = `rgb(${r},${g},${b})`;
+    roundRect(ctx, x + 1, y + 1, s, s, s * 0.3);
+    ctx.fill();
+
+    // 蛇纹纹理
+    ctx.fillStyle = `rgba(255,255,255,0.1)`;
+    roundRect(ctx, x + s*0.25, y + 1, s*0.5, s, s * 0.3);
+    ctx.fill();
+
+    // 头部眼睛
+    if (i === snake.length - 1) {
+      ctx.fillStyle = '#fff';
+      const eyeR = s * 0.2;
+      let ex1, ey1, ex2, ey2;
+      const ec = s * 0.3;
+      switch (direction) {
+        case 'right':
+          ex1 = x + s * 0.65; ey1 = y + s * 0.25;
+          ex2 = x + s * 0.65; ey2 = y + s * 0.75;
+          break;
+        case 'left':
+          ex1 = x + s * 0.35; ey1 = y + s * 0.25;
+          ex2 = x + s * 0.35; ey2 = y + s * 0.75;
+          break;
+        case 'up':
+          ex1 = x + s * 0.25; ey1 = y + s * 0.35;
+          ex2 = x + s * 0.75; ey2 = y + s * 0.35;
+          break;
+        case 'down':
+          ex1 = x + s * 0.25; ey1 = y + s * 0.65;
+          ex2 = x + s * 0.75; ey2 = y + s * 0.65;
+          break;
+      }
+      ctx.beginPath();
+      ctx.arc(ex1, ey1, eyeR, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(ex2, ey2, eyeR, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 瞳孔
+      ctx.fillStyle = '#111';
+      ctx.beginPath();
+      ctx.arc(ex1, ey1, eyeR * 0.55, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(ex2, ey2, eyeR * 0.55, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  });
+
+  // 粒子
+  particles.forEach(p => {
+    ctx.globalAlpha = p.life;
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+
+  // Combo 文字
+  if (comboText && comboTimer > 0) {
+    const alpha = Math.min(1, comboTimer / 20);
+    const scale = 1 + (40 - comboTimer) * 0.02;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.translate(canvas.width / 2, canvas.height / 2);
+    ctx.scale(scale, scale);
+    ctx.font = 'bold 48px "PingFang SC","Microsoft YaHei",sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    // 描边
+    ctx.strokeStyle = '#FF6F00';
+    ctx.lineWidth = 3;
+    ctx.strokeText(comboText, 0, 0);
+
+    // 填充
+    const grad = ctx.createLinearGradient(0, -30, 0, 30);
+    grad.addColorStop(0, '#FFD54F');
+    grad.addColorStop(1, '#FF8F00');
+    ctx.fillStyle = grad;
+    ctx.fillText(comboText, 0, 0);
+
+    ctx.restore();
+  }
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+// ===================== HUD 更新 =====================
+function updateHUD() {
+  $scoreVal.textContent = score;
+  $gradeBadge.textContent = GRADE_CONFIG[gradeIndex].name;
+
+  if (combo >= 2) {
+    $comboBadge.style.display = 'inline';
+    $comboBadge.textContent = `COMBO×${Math.min(combo, COMBO_MAX)}`;
+  } else {
+    $comboBadge.style.display = 'none';
+  }
+
+  let hearts = '';
+  for (let i = 0; i < MAX_LIVES; i++) {
+    hearts += i < lives ? '❤️' : '🖤';
+  }
+  $livesVal.textContent = hearts;
+
+  // 等级徽章
+  const lv = LEVEL_NAMES[currentLevel - 1];
+  $levelBadge.textContent = `${lv.icon} Lv.${currentLevel}`;
+}
+
+// 检查是否升级
+function checkLevelUp() {
+  if (currentLevel >= MAX_LEVEL) return;
+  const nextThreshold = SCORE_THRESHOLDS[currentLevel];
+  if (score >= nextThreshold) {
+    currentLevel++;
+    const lv = LEVEL_NAMES[currentLevel - 1];
+    showLevelUpNotice(lv);
+    // 徽章弹跳动画
+    $levelBadge.classList.remove('pop');
+    void $levelBadge.offsetWidth; // 强制回流
+    $levelBadge.classList.add('pop');
+  }
+}
+
+function showLevelUpNotice(lv) {
+  const notice = document.getElementById('levelupNotice');
+  notice.className = 'levelup-notice';
+  notice.innerHTML = `
+    <span class="lv-icon">${lv.icon}</span>
+    <div class="lv-info">
+      <span class="lv-title">等级提升！</span>
+      <span class="lv-name">${lv.name}</span>
+    </div>
+  `;
+  // CSS 动画 2.2s 自动消失后清理
+  setTimeout(() => {
+    notice.innerHTML = '';
+    notice.className = '';
+  }, 2300);
+}
+
+// ===================== 游戏控制 =====================
+function startGame() {
+  resizeCanvas();
+  score = 0;
+  currentLevel = 1;
+  combo = 0;
+  lives = MAX_LIVES;
+  particles = [];
+  comboText = '';
+  comboTimer = 0;
+  questionCount = 0;
+  correctCount = 0;
+
+  initSnake();
+  generateNewQuestion();
+  placeFoods();
+  updateHUD();
+  $qHint.textContent = '';
+  state = 'playing';
+  lastTick = performance.now();
+  $menuOverlay.classList.add('hidden');
+  $gameoverOverlay.classList.add('hidden');
+  $pauseOverlay.classList.add('hidden');
+  // 显示方向键（移动端）
+  if (window.innerWidth < 768) {
+    document.getElementById('controls').style.display = 'grid';
+  }
+}
+
+function gameOver() {
+  state = 'gameover';
+
+  const acc = questionCount > 0 ? Math.round(correctCount / questionCount * 100) : 0;
+  let title, emoji;
+  if (acc >= 90)       { title = '天才小数学家！'; emoji = '🏆'; }
+  else if (acc >= 70)  { title = '太棒了！'; emoji = '🎉'; }
+  else if (acc >= 50)  { title = '继续加油！'; emoji = '💪'; }
+  else                 { title = '别灰心，多练练！'; emoji = '📚'; }
+
+  $goTitle.innerHTML = `${emoji} ${title}`;
+  const endLv = LEVEL_NAMES[currentLevel - 1];
+  $resultStats.innerHTML = `
+    <div class="stat-item"><div class="val">${score}</div><div class="lbl">总得分</div></div>
+    <div class="stat-item"><div class="val">${endLv.icon} ${endLv.name}</div><div class="lbl">达成等级</div></div>
+    <div class="stat-item"><div class="val">${correctCount}/${questionCount}</div><div class="lbl">正确/总题数</div></div>
+    <div class="stat-item"><div class="val">${acc}%</div><div class="lbl">正确率</div></div>
+    <div class="stat-item"><div class="val">${Math.min(combo, COMBO_MAX)}</div><div class="lbl">最大连击</div></div>
+    <div class="stat-item"><div class="val">${snake.length}</div><div class="lbl">蛇身长度</div></div>
+  `;
+  $gameoverOverlay.classList.remove('hidden');
+}
+
+function pauseGame() {
+  if (state === 'playing') {
+    state = 'paused';
+    $pauseOverlay.classList.remove('hidden');
+  }
+}
+
+function resumeGame() {
+  if (state === 'paused') {
+    state = 'playing';
+    lastTick = performance.now();
+    $pauseOverlay.classList.add('hidden');
+  }
+}
+
+function quitToMenu() {
+  state = 'menu';
+  $pauseOverlay.classList.add('hidden');
+  $gameoverOverlay.classList.add('hidden');
+  $menuOverlay.classList.remove('hidden');
+  $qText.textContent = '准备开始！';
+  $qHint.textContent = '按方向键控制小蛇';
+  $comboBadge.style.display = 'none';
+  document.getElementById('controls').style.display = 'none';
+  // 重渲染空白画布
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+// ===================== 主循环 =====================
+function getMoveInterval() {
+  // 随年级 + 等级加快
+  const base = [220, 200, 180, 160, 140, 140, 130, 130];
+  const gradeSpeed = base[gradeIndex] || 180;
+  // 每级减 8ms（最高减 72ms），最低 90ms
+  return Math.max(90, gradeSpeed - (currentLevel - 1) * 8);
+}
+
+function gameLoop(timestamp) {
+  if (state === 'playing') {
+    const interval = getMoveInterval();
+    if (timestamp - lastTick >= interval) {
+      const result = moveSnake();
+      lastTick = timestamp;
+
+      if (result === 'wall' || result === 'self') {
+        // 撞墙/自撞 → 扣命
+        lives--;
+        updateHUD();
+        // 震动效果
+        $questionCard.classList.add('shake');
+        setTimeout(() => $questionCard.classList.remove('shake'), 400);
+
+        if (lives <= 0) {
+          gameOver();
+        } else {
+          // 重置蛇并刷新食物
+          initSnake();
+          placeFoods();
+          // 保留同一道题
+        }
+      } else if (result && result.type === 'food') {
+        const eaten = result.food;
+        questionCount++;
+        if (eaten.value === curAnswer) {
+          // 正确！
+          correctCount++;
+          combo++;
+          const cm = Math.min(combo, COMBO_MAX);
+          score += BASE_SCORE * cm;
+          // 蛇已在 moveSnake 中自动增长（吃食物不移除尾部）
+
+          // 升级检测
+          checkLevelUp();
+
+          // 特效
+          const hx = pixelX(eaten.x) + cellSize / 2;
+          const hy = pixelY(eaten.y) + cellSize / 2;
+          spawnParticles(hx, hy, '#FFD54F', 18);
+
+          if (combo >= 3) {
+            showComboText(`COMBO ×${cm}!`);
+          } else if (combo === 2) {
+            showComboText('连对!');
+          }
+
+          generateNewQuestion();
+          placeFoods();
+        } else {
+          // 错误！
+          combo = 0;
+          lives--;
+          shrinkSnake();
+
+          const hx = pixelX(eaten.x) + cellSize / 2;
+          const hy = pixelY(eaten.y) + cellSize / 2;
+          spawnParticles(hx, hy, '#90A4AE', 10);
+
+          $questionCard.classList.add('shake');
+          setTimeout(() => $questionCard.classList.remove('shake'), 400);
+
+          if (lives <= 0) {
+            gameOver();
+          } else {
+            // 同题，刷新食物位置
+            placeFoods();
+            $qHint.textContent = '答错了！再想想，正确答案是哪个？';
+          }
+        }
+      } else {
+        // 普通移动，无碰撞
+      }
+      updateHUD();
+    }
+    updateParticles();
+    render();
+  }
+
+  if (state === 'countdown') {
+    // countdown 暂未使用（直接从菜单开始）
+  }
+
+  requestAnimationFrame(gameLoop);
+}
+
+// ===================== 输入处理 =====================
+function handleDirection(dir) {
+  if (state !== 'playing') return;
+  const opposites = { up: 'down', down: 'up', left: 'right', right: 'left' };
+  if (dir !== opposites[direction]) {
+    nextDir = dir;
+  }
+}
+
+document.addEventListener('keydown', (e) => {
+  if (state === 'playing') {
+    switch (e.key) {
+      case 'ArrowUp':    case 'w': case 'W': e.preventDefault(); handleDirection('up');    break;
+      case 'ArrowDown':  case 's': case 'S': e.preventDefault(); handleDirection('down');  break;
+      case 'ArrowLeft':  case 'a': case 'A': e.preventDefault(); handleDirection('left');  break;
+      case 'ArrowRight': case 'd': case 'D': e.preventDefault(); handleDirection('right'); break;
+      case 'Escape': case 'p': case 'P': e.preventDefault(); pauseGame(); break;
+    }
+  } else if (state === 'paused') {
+    if (e.key === 'Escape' || e.key === 'p' || e.key === 'P') {
+      e.preventDefault(); resumeGame();
+    }
+  }
+});
+
+// 触屏方向键
+['up','down','left','right'].forEach(dir => {
+  const btn = document.getElementById('btn-' + dir);
+  if (btn) {
+    // 使用 pointerdown 避免 300ms 延迟
+    btn.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      handleDirection(dir);
+    });
+    // 阻止双击缩放
+    btn.addEventListener('touchstart', (e) => e.preventDefault());
+  }
+});
+
+// 触屏滑动
+let touchStartX = 0, touchStartY = 0;
+canvas.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  touchStartX = e.touches[0].clientX;
+  touchStartY = e.touches[0].clientY;
+}, { passive: false });
+
+canvas.addEventListener('touchend', (e) => {
+  if (state !== 'playing') return;
+  const dx = e.changedTouches[0].clientX - touchStartX;
+  const dy = e.changedTouches[0].clientY - touchStartY;
+  const minSwipe = 30;
+  if (Math.abs(dx) < minSwipe && Math.abs(dy) < minSwipe) return;
+
+  if (Math.abs(dx) > Math.abs(dy)) {
+    handleDirection(dx > 0 ? 'right' : 'left');
+  } else {
+    handleDirection(dy > 0 ? 'down' : 'up');
+  }
+});
+
+// ===================== 按钮事件 =====================
+document.getElementById('btnStart').addEventListener('click', startGame);
+document.getElementById('btnPause').addEventListener('click', pauseGame);
+document.getElementById('btnResume').addEventListener('click', resumeGame);
+document.getElementById('btnQuit').addEventListener('click', quitToMenu);
+document.getElementById('btnRetry').addEventListener('click', startGame);
+document.getElementById('btnHome').addEventListener('click', quitToMenu);
+
+// ===================== 初始化 =====================
+function init() {
+  buildGradeGrid();
+  resizeCanvas();
+  updateHUD();
+  // 初始渲染空画布
+  ctx.fillStyle = '#C8E6C9';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  // 隐藏移动端方向键
+  document.getElementById('controls').style.display = 'none';
+  // 启动循环
+  requestAnimationFrame(gameLoop);
+}
+
+init();
+</script>
+<script>
+// PWA: 注册 Service Worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js');
+}
+</script>
+</body>
+</html>
