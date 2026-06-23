@@ -96,25 +96,33 @@
   }
   canvas { display: block; width: 100%; height: 100%; background: #C8E6C9; }
 
-  /* ---- 方向键 ---- */
+  /* ---- 方向键：浮在 Canvas 底部，不占布局空间 ---- */
   #controls {
     display: grid;
-    grid-template-columns: 80px 80px 80px;
-    grid-template-rows: 80px 80px 80px;
-    gap: 6px;
+    grid-template-columns: 56px 56px 56px;
+    grid-template-rows: 56px 56px 56px;
+    gap: 3px;
     justify-content: center;
+    position: absolute;
+    bottom: 8px; left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    pointer-events: none; /* 让点击穿透到 canvas */
   }
   #controls button {
     width: 100%; height: 100%;
-    border: none; border-radius: 14px;
-    background: #fff; font-size: 32px;
+    border: none; border-radius: 12px;
+    background: rgba(255,255,255,0.75);
+    backdrop-filter: blur(4px);
+    font-size: 24px;
     cursor: pointer; color: #4CAF50;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
     transition: transform 0.1s, background 0.1s;
+    pointer-events: auto; /* 按钮本身可点击 */
   }
   #controls button:active {
-    transform: scale(0.92);
-    background: #C8E6C9;
+    transform: scale(0.9);
+    background: rgba(200,230,201,0.9);
   }
   #btn-up    { grid-row: 1; grid-column: 2; }
   #btn-left  { grid-row: 2; grid-column: 1; }
@@ -258,14 +266,13 @@
   <!-- Canvas -->
   <div id="canvas-container">
     <canvas id="gameCanvas"></canvas>
-  </div>
-
-  <!-- 触屏方向键 -->
-  <div id="controls">
-    <button id="btn-up"    data-dir="up">▲</button>
-    <button id="btn-left"  data-dir="left">◀</button>
-    <button id="btn-right" data-dir="right">▶</button>
-    <button id="btn-down"  data-dir="down">▼</button>
+    <!-- 触屏方向键：浮在 Canvas 底部 -->
+    <div id="controls">
+      <button id="btn-up"    data-dir="up">▲</button>
+      <button id="btn-left"  data-dir="left">◀</button>
+      <button id="btn-right" data-dir="right">▶</button>
+      <button id="btn-down"  data-dir="down">▼</button>
+    </div>
   </div>
 </div>
 
