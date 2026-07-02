@@ -42,34 +42,27 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 8px 16px;
+    padding: 6px 12px;
     background: #fff;
-    border-radius: 16px;
+    border-radius: 14px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.08);
   }
   #toolbar .grade-badge {
     background: #4CAF50; color: #fff;
-    padding: 4px 12px; border-radius: 20px;
-    font-size: 14px; font-weight: bold;
+    padding: 3px 10px; border-radius: 16px;
+    font-size: 13px; font-weight: bold;
   }
-  #toolbar .level-badge {
-    background: linear-gradient(135deg, #FF6F00, #FF8F00);
-    color: #fff; padding: 4px 12px; border-radius: 20px;
-    font-size: 14px; font-weight: bold;
-    transition: transform 0.3s;
-  }
-  #toolbar .level-badge.pop { animation: pop 0.5s ease; }
   #toolbar .stats {
-    display: flex; gap: 16px; align-items: center;
-    font-size: 15px; font-weight: bold;
+    display: flex; gap: 10px; align-items: center;
+    font-size: 14px; font-weight: bold;
   }
   #toolbar .stats .score { color: #E65100; }
-  #toolbar .stats .combo { color: #F9A825; font-size: 13px; }
-  #toolbar .lives { color: #E53935; font-size: 18px; letter-spacing: 2px; }
+  #toolbar .stats .combo { color: #F9A825; font-size: 12px; }
+  #toolbar .lives { color: #E53935; font-size: 16px; letter-spacing: 2px; }
   #toolbar button {
     background: #E8F5E9; border: none;
-    padding: 8px 14px; border-radius: 10px;
-    font-size: 18px; cursor: pointer;
+    padding: 6px 10px; border-radius: 8px;
+    font-size: 16px; cursor: pointer;
   }
   #toolbar button:hover { background: #C8E6C9; }
 
@@ -99,17 +92,17 @@
   /* ---- 方向键：放在 Canvas 下方，不遮挡游戏 ---- */
   #controls {
     display: grid;
-    grid-template-columns: 52px 52px 52px;
-    grid-template-rows: 52px 52px 52px;
-    gap: 3px;
+    grid-template-columns: 40px 40px 40px;
+    grid-template-rows: 40px 40px 40px;
+    gap: 2px;
     justify-content: center;
-    margin-top: 6px;
+    margin-top: 4px;
   }
   #controls button {
     width: 100%; height: 100%;
-    border: none; border-radius: 12px;
+    border: none; border-radius: 10px;
     background: #fff;
-    font-size: 22px;
+    font-size: 18px;
     cursor: pointer; color: #4CAF50;
     box-shadow: 0 2px 6px rgba(0,0,0,0.1);
     transition: transform 0.1s, background 0.1s;
@@ -231,8 +224,8 @@
     #controls { display: none; }
   }
   @media (max-width: 767px) {
-    #app { padding: 4px; gap: 6px; }
-    #question-card { font-size: 24px; padding: 10px 16px; }
+    #app { padding: 3px; gap: 4px; }
+    #question-card { font-size: 22px; padding: 8px 12px; }
     #canvas-container { max-width: 100vw; max-height: calc(100vw - 20px); }
   }
 </style>
@@ -242,10 +235,9 @@
   <!-- 顶栏 -->
   <div id="toolbar">
     <span class="grade-badge" id="gradeBadge">一年级下</span>
-    <span class="level-badge" id="levelBadge">🐸 小蝌蚪</span>
     <div class="stats">
-      <span class="score">⭐<span id="scoreVal">0</span></span>
-      <span class="combo" id="comboBadge" style="display:none">COMBO×1</span>
+      <span class="score" id="scoreVal">⭐ 0</span>
+      <span class="combo" id="comboBadge" style="display:none">×1</span>
       <span class="lives" id="livesVal">❤️❤️❤️</span>
     </div>
     <button id="btnPause" title="暂停">⏸</button>
@@ -331,7 +323,6 @@ const ctx = canvas.getContext('2d');
 const canvasContainer = document.getElementById('canvas-container');
 
 const $gradeBadge  = document.getElementById('gradeBadge');
-const $levelBadge  = document.getElementById('levelBadge');
 const $scoreVal    = document.getElementById('scoreVal');
 const $comboBadge  = document.getElementById('comboBadge');
 const $livesVal    = document.getElementById('livesVal');
@@ -903,12 +894,12 @@ function roundRect(ctx, x, y, w, h, r) {
 
 // ===================== HUD 更新 =====================
 function updateHUD() {
-  $scoreVal.textContent = score;
+  $scoreVal.textContent = '⭐ ' + score;
   $gradeBadge.textContent = GRADE_CONFIG[gradeIndex].name;
 
   if (combo >= 2) {
     $comboBadge.style.display = 'inline';
-    $comboBadge.textContent = `COMBO×${Math.min(combo, COMBO_MAX)}`;
+    $comboBadge.textContent = '×' + Math.min(combo, COMBO_MAX);
   } else {
     $comboBadge.style.display = 'none';
   }
@@ -918,10 +909,6 @@ function updateHUD() {
     hearts += i < lives ? '❤️' : '🖤';
   }
   $livesVal.textContent = hearts;
-
-  // 等级徽章
-  const lv = LEVEL_NAMES[currentLevel - 1];
-  $levelBadge.textContent = `${lv.icon} Lv.${currentLevel}`;
 }
 
 // 检查是否升级
@@ -932,10 +919,6 @@ function checkLevelUp() {
     currentLevel++;
     const lv = LEVEL_NAMES[currentLevel - 1];
     showLevelUpNotice(lv);
-    // 徽章弹跳动画
-    $levelBadge.classList.remove('pop');
-    void $levelBadge.offsetWidth; // 强制回流
-    $levelBadge.classList.add('pop');
   }
 }
 
